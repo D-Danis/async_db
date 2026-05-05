@@ -1,7 +1,7 @@
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
-from logger import logger
 from app.models import SpimexTradingResult
+from logger import logger
 
 
 class AsyncDBWriter:
@@ -15,20 +15,18 @@ class AsyncDBWriter:
     async def write_batch(self, records: list[dict]):
         if not records:
             return
-        
+
         try:
             async with self.sessionmaker() as session:
                 stmt = pg_insert(SpimexTradingResult).values(records)
-                stmt = stmt.on_conflict_do_nothing(
-                    index_elements=["exchange_product_id", "date"]
-                )
+                stmt = stmt.on_conflict_do_nothing(index_elements=["exchange_product_id", "date"])
                 result = await session.execute(stmt)
                 await session.commit()
-                
+
                 inserted = result.rowcount
                 duplicates = len(records) - inserted
                 self.total_inserted += inserted
-                
+
                 logger.info(
                     f"Запись в БД: добавлено {inserted} записей, "
                     f"пропущено дубликатов {duplicates}, "
@@ -37,4 +35,3 @@ class AsyncDBWriter:
         except Exception as e:
             logger.error(f"Ошибка записи в БД: {e}")
             raise
-  

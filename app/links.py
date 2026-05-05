@@ -1,10 +1,8 @@
 import asyncio
-
 from datetime import date
 from urllib.parse import urljoin
 
 import aiohttp
-
 from bs4 import BeautifulSoup
 from dateutil import parser
 
@@ -23,9 +21,7 @@ class ParserLinkAsync:
     async def __aenter__(self):
         self.session = aiohttp.ClientSession(
             timeout=aiohttp.ClientTimeout(total=30),
-            headers={
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-            }
+            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"},
         )
         return self
 
@@ -46,7 +42,7 @@ class ParserLinkAsync:
                     resp.raise_for_status()
                     return await resp.text()
             except Exception as e:
-                logger.warning(f"Попытка {attempt+1}/{retries} для {url}: {e}")
+                logger.warning(f"Попытка {attempt + 1}/{retries} для {url}: {e}")
                 if attempt == retries - 1:
                     raise
                 await asyncio.sleep(1)
@@ -73,7 +69,7 @@ class ParserLinkAsync:
             if file_date < self.start_date:
                 stop = True
                 break
-            
+
             # Преобразуем относительную ссылку в абсолютную
             full_url = urljoin(current_url, href)
             file_links.append(full_url)
@@ -109,7 +105,7 @@ class ParserLinkAsync:
                 break
             current_url = next_url
             logger.info(f"Переход на следующую страницу: {current_url}")
-            await asyncio.sleep(0.2) 
+            await asyncio.sleep(0.2)
 
         logger.info(f"Итоговые ссылки: {self.links}")
         return self.links

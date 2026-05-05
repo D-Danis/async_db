@@ -1,5 +1,5 @@
-import sys
 import logging
+import sys
 
 
 def setup_logger(name: str = "spimex_parser", log_file: str = "parser.log") -> logging.Logger:

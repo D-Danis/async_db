@@ -1,6 +1,5 @@
 import re
-
-from typing import Optional, Iterable
+from collections.abc import Iterable
 
 import pandas as pd
 import pdfplumber
@@ -8,7 +7,7 @@ import pdfplumber
 from logger import logger
 
 
-def find_page_with_text(pdf: pdfplumber.PDF, target: str) -> Optional[int]:
+def find_page_with_text(pdf: pdfplumber.PDF, target: str) -> int | None:
     """Возвращает индекс первой страницы, содержащей заданный текст."""
     for i, page in enumerate(pdf.pages):
         text = page.extract_text()
@@ -17,7 +16,7 @@ def find_page_with_text(pdf: pdfplumber.PDF, target: str) -> Optional[int]:
     return None
 
 
-def extract_headers_and_data(page: pdfplumber.page) -> tuple[Optional[list[str]], Optional[list[list[str]]]]:
+def extract_headers_and_data(page: pdfplumber.page) -> tuple[list[str] | None, list[list[str]] | None]:
     """
     Извлекает строку заголовков и строки данных из таблицы на странице.
     Возвращает (headers, data_rows) или (None, None), если заголовок не найден.
@@ -170,7 +169,7 @@ def extract_spimex_bulletin_data(
         unique_headers = make_headers_unique(headers)
         df = pd.DataFrame(all_rows, columns=unique_headers)
 
-#         # ... дальше ваш код без изменений ...
+        #         # ... дальше ваш код без изменений ...
         column_mapping = {
             "exchange_product_id": [r"код инструмента", r"код"],
             "exchange_product_name": [r"наименование инструмента", r"наименование"],
@@ -187,7 +186,7 @@ def extract_spimex_bulletin_data(
             "count": [r"количество договоров,? шт\.?", r"количество договоров", r"количество"],
         }
         result = map_columns(df, column_mapping)
-#         # ...
+        #         # ...
         result = clean_numeric_columns(result, ["volume", "total", "count"])
         result = result.dropna(subset=["exchange_product_id", "volume", "total", "count"])
 
@@ -202,7 +201,6 @@ def extract_spimex_bulletin_data(
             pattern = "^(" + "|".join(re.escape(p) for p in product_prefixes) + ")"
             result = result[result["exchange_product_id"].str.match(pattern)]
 
-        
-#         # В конце возвращаем записи из result (НЕ из исходного df)
+        #         # В конце возвращаем записи из result (НЕ из исходного df)
         records = result.to_dict(orient="records")
         return records

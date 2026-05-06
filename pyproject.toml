@@ -1,5 +1,5 @@
 [project]
-name = "db"
+name = "async_db"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"

@@ -1,5 +1,8 @@
+from datetime import date, datetime
+from pathlib import Path
 import re
 from collections.abc import Iterable
+from typing import Optional
 
 import pandas as pd
 import pdfplumber
@@ -144,8 +147,8 @@ def make_headers_unique(headers: list[str]) -> list[str]:
 
 
 def extract_spimex_bulletin_data(
-    file_path: str,
-    trade_date,
+    file_path: Path,
+    trade_date: Optional[date] = None,
     product_prefixes: tuple[str, ...] = ("A",),
     stop_patterns: tuple[str, ...] = ("Единица измерения: Кубический метр", "Единица измерения: Килограмм"),
 ) -> list[dict]:
@@ -159,7 +162,11 @@ def extract_spimex_bulletin_data(
         headers, data_rows = extract_headers_and_data(page)
         if headers is None:
             raise ValueError(f"Не найдена строка заголовков на странице {start_page} в {file_path}")
-
+        
+        trade_date = _extract_trade_date_from_pdf(pdf)
+        if trade_date is None:
+            raise ValueError(f"Не удалось найти дату торгов в файле {file_path}")
+        
         all_rows = data_rows if data_rows else []
         next_page_start = start_page + 1
         additional_rows = collect_data_rows_from_pdf(pdf, next_page_start, stop_patterns)
@@ -169,7 +176,6 @@ def extract_spimex_bulletin_data(
         unique_headers = make_headers_unique(headers)
         df = pd.DataFrame(all_rows, columns=unique_headers)
 
-        #         # ... дальше ваш код без изменений ...
         column_mapping = {
             "exchange_product_id": [r"код инструмента", r"код"],
             "exchange_product_name": [r"наименование инструмента", r"наименование"],
@@ -186,7 +192,6 @@ def extract_spimex_bulletin_data(
             "count": [r"количество договоров,? шт\.?", r"количество договоров", r"количество"],
         }
         result = map_columns(df, column_mapping)
-        #         # ...
         result = clean_numeric_columns(result, ["volume", "total", "count"])
         result = result.dropna(subset=["exchange_product_id", "volume", "total", "count"])
 
@@ -204,3 +209,19 @@ def extract_spimex_bulletin_data(
         #         # В конце возвращаем записи из result (НЕ из исходного df)
         records = result.to_dict(orient="records")
         return records
+
+def _extract_trade_date_from_pdf(pdf: pdfplumber.PDF) -> Optional[date]:
+    """Ищет в первых трёх страницах строку 'Дата торгов: ДД.ММ.ГГГГ'."""
+    for page_num in range(min(3, len(pdf.pages))):
+        text = pdf.pages[page_num].extract_text()
+        if not text:
+            continue
+        # Ищем "Дата торгов: 07.05.2026" или "Дата торгов:07.05.2026"
+        match = re.search(r"Дата торгов:\s*(\d{2}\.\d{2}\.\d{4})", text)
+        if match:
+            date_str = match.group(1)
+            try:
+                return datetime.strptime(date_str, "%d.%m.%Y").date()
+            except ValueError:
+                continue
+    return None

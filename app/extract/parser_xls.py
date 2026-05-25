@@ -1,5 +1,7 @@
+from pathlib import Path
 import re
-from datetime import date
+from datetime import date, datetime
+from typing import Optional
 
 import pandas as pd
 import xlrd
@@ -8,8 +10,8 @@ from logger import logger
 
 
 def extract_spimex_xls_data(
-    file_path: str,
-    trade_date: date,
+    file_path: Path,
+    trade_date: Optional[date] = None,
     product_prefixes: tuple[str, ...] = ("A",),
 ) -> list[dict]:
     """
@@ -39,6 +41,10 @@ def extract_spimex_xls_data(
             logger.warning(f"Заголовок 'Код Инструмента' не найден в {file_path}")
             return []
 
+        trade_date = _extract_trade_date_from_xls(workbook)
+        if trade_date is None:
+            raise ValueError(f"Не удалось найти дату торгов в файле {file_path}")
+        
         # Извлекаем заголовки
         headers = [str(sheet.cell_value(header_row_idx, col)).strip() for col in range(sheet.ncols)]
 
@@ -148,3 +154,23 @@ def clean_numeric_columns(df: pd.DataFrame, cols: list[str]) -> pd.DataFrame:
             df[col] = df[col].astype(str).str.replace(r"[\s,]", "", regex=True)
             df[col] = pd.to_numeric(df[col], errors="coerce")
     return df
+
+def _extract_trade_date_from_xls(workbook: xlrd.Book) -> Optional[date]:
+    """Ищет на первом листе строку 'Дата торгов: ДД.ММ.ГГГГ'."""
+    try:
+        sheet = workbook.sheet_by_index(0)
+        # Просматриваем первые 10 строк (обычно шапка)
+        for row_idx in range(min(10, sheet.nrows)):
+            row_text = " ".join(
+                str(sheet.cell_value(row_idx, col)) for col in range(sheet.ncols)
+            )
+            match = re.search(r"Дата торгов:\s*(\d{2}\.\d{2}\.\d{4})", row_text)
+            if match:
+                date_str = match.group(1)
+                try:
+                    return datetime.strptime(date_str, "%d.%m.%Y").date()
+                except ValueError:
+                    continue
+    except Exception:
+        pass
+    return None
